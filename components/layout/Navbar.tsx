@@ -19,7 +19,7 @@ export default function Navbar() {
     }
     checkSession()
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((_event: string, session: any) => {
       setUsuarioActivo(session?.user?.email || null)
     })
 
