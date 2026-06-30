@@ -45,23 +45,37 @@ export default function RegistroPage() {
 
       if (error) {
         toast.error(error.message)
+        setLoading(false)
         return
       }
 
-      if (data.user) {
-        await supabase.from('usuarios').insert({
-          id: data.user.id,
-          nombre: form.nombre,
-          apellido: form.apellido,
-          email: form.email,
-          telefono: form.telefono,
-          rol: 'cliente',
-        })
+      if (!data.user) {
+        toast.error('No se pudo crear el usuario. Intentá de nuevo.')
+        setLoading(false)
+        return
       }
 
-      toast.success('¡Cuenta creada! Revisá tu email para confirmarla.')
+      // Guardar datos en la tabla usuarios
+      const { error: errorPerfil } = await supabase.from('usuarios').insert({
+        id: data.user.id,
+        nombre: form.nombre,
+        apellido: form.apellido,
+        email: form.email,
+        telefono: form.telefono,
+        rol: 'cliente',
+      })
+
+      if (errorPerfil) {
+        console.error('Error guardando perfil:', errorPerfil)
+        toast.error('Cuenta creada pero hubo un problema guardando tus datos. Contactanos.')
+        setLoading(false)
+        return
+      }
+
+      toast.success('¡Cuenta creada con éxito!')
       router.push('/login')
     } catch (err) {
+      console.error(err)
       toast.error('Ocurrió un error. Intentá de nuevo.')
     } finally {
       setLoading(false)
