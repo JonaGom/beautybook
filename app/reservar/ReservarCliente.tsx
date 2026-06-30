@@ -1,12 +1,12 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { ChevronLeft, Clock, Check } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
+import { supabase } from '@/lib/supabase'
 import {
-  SERVICIOS_EJEMPLO,
   HORARIOS_DISPONIBLES,
   DIAS_CERRADO,
   formatPrecio,
@@ -16,21 +16,61 @@ import {
 
 const PASOS = ['Servicio', 'Fecha y hora', 'Confirmación']
 
+type Servicio = {
+  id: string
+  nombre: string
+  descripcion: string
+  duracion_minutos: number
+  precio: number
+  precio_promocional: number | null
+  indicaciones_previas: string | null
+  activo: boolean
+}
+
 export default function ReservarCliente() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [paso, setPaso] = useState(0)
+  const [servicios, setServicios] = useState<Servicio[]>([])
+  const [cargandoServicios, setCargandoServicios] = useState(true)
   const [servicioId, setServicioId] = useState(searchParams.get('servicio') || '')
   const [fecha, setFecha] = useState('')
   const [hora, setHora] = useState('')
   const [tipoPago, setTipoPago] = useState<'50' | '100'>('50')
   const [loading, setLoading] = useState(false)
+  const [usuarioId, setUsuarioId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const cargarServicios = async () => {
+      const { data, error } = await supabase
+        .from('servicios')
+        .select('*')
+        .eq('activo', true)
+        .order('nombre')
+
+      if (error) {
+        console.error('Error cargando servicios:', error)
+        toast.error('No se pudieron cargar los servicios')
+      } else {
+        setServicios(data || [])
+      }
+      setCargandoServicios(false)
+    }
+
+    const cargarSesion = async () => {
+      const { data } = await supabase.auth.getSession()
+      setUsuarioId(data.session?.user?.id || null)
+    }
+
+    cargarServicios()
+    cargarSesion()
+  }, [])
 
   const hoy = new Date()
   hoy.setDate(hoy.getDate() + 1)
   const fechaMin = hoy.toISOString().split('T')[0]
 
-  const servicio = SERVICIOS_EJEMPLO.find(s => s.id === servicioId)
+  const servicio = servicios.find(s => s.id === servicioId)
   const precioFinal = servicio ? (servicio.precio_promocional ?? servicio.precio) : 0
   const montoAPagar = tipoPago === '50' ? Math.ceil(precioFinal * 0.5) : precioFinal
 
@@ -40,11 +80,51 @@ export default function ReservarCliente() {
   }
 
   const handleConfirmar = async () => {
+    if (!usuarioId) {
+      toast.error('Necesitás iniciar sesión para reservar un turno')
+      router.push('/login')
+      return
+    }
+
+    if (!servicio) {
+      toast.error('Seleccioná un servicio')
+      return
+    }
+
     setLoading(true)
-    await new Promise(r => setTimeout(r, 1500))
+
+    const { error } = await supabase.from('turnos').insert({
+      usuario_id: usuarioId,
+      servicio_id: servicio.id,
+      fecha: fecha,
+      hora_inicio: hora,
+      estado: 'pendiente',
+      monto_total: precioFinal,
+      monto_pagado: montoAPagar,
+    })
+
+    setLoading(false)
+
+    if (error) {
+      console.error('Error creando turno:', error)
+      toast.error('No se pudo crear la reserva. Intentá de nuevo.')
+      return
+    }
+
     toast.success('¡Turno reservado con éxito!')
     router.push('/cliente/reservas')
-    setLoading(false)
+  }
+
+  if (cargandoServicios) {
+    return (
+      <>
+        <Navbar />
+        <main className="pt-24 pb-16 min-h-screen bg-cream-50 flex items-center justify-center">
+          <p className="text-stone-warm">Cargando servicios...</p>
+        </main>
+        <Footer />
+      </>
+    )
   }
 
   return (
@@ -82,7 +162,7 @@ export default function ReservarCliente() {
               <div className="animate-fade-in">
                 <h2 className="font-display text-xl text-stone-dark mb-6">¿Qué servicio querés?</h2>
                 <div className="space-y-3">
-                  {SERVICIOS_EJEMPLO.filter(s => s.activo).map(s => (
+                  {servicios.map(s => (
                     <button
                       key={s.id}
                       onClick={() => setServicioId(s.id)}
@@ -255,11 +335,11 @@ export default function ReservarCliente() {
                     disabled={loading}
                     className="btn-primary flex-1"
                   >
-                    {loading ? 'Procesando...' : `Pagar ${formatPrecio(montoAPagar)}`}
+                    {loading ? 'Procesando...' : `Confirmar reserva — ${formatPrecio(montoAPagar)}`}
                   </button>
                 </div>
                 <p className="text-center text-xs text-stone-warm/60 mt-3">
-                  🔒 Pago seguro procesado por Stripe
+                  💬 El pago se coordina por WhatsApp por ahora
                 </p>
               </div>
             )}
