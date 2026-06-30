@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Toaster } from 'react-hot-toast'
 import './globals.css'
 import { NEGOCIO } from '@/lib/datos-ejemplo'
+import WhatsappFlotante from '@/components/layout/WhatsappFlotante'
 
 export const metadata: Metadata = {
   title: `${NEGOCIO.nombre} — Reservá tu turno`,
@@ -18,6 +19,7 @@ export default function RootLayout({
     <html lang="es">
       <body>
         {children}
+        <WhatsappFlotante />
         <Toaster
           position="top-center"
           toastOptions={{

@@ -6,7 +6,7 @@ export const NEGOCIO = {
   nombre: 'T.C Estética',
   slogan: 'Tu bienestar, nuestra pasión',
   descripcion: 'Centro de estética profesional en Lomas de Zamora. Especialistas en tratamientos faciales, corporales, depilación láser y bienestar holístico.',
-  telefono: '+54 11 0000-0000', // 👈 Actualizar con teléfono real
+  telefono: '+54 9 11 7151-8339',
   whatsapp: '5491100000000',    // 👈 Actualizar con WhatsApp real
   email: 'turnos@tcstetica.com', // 👈 Actualizar con email real
   direccion: 'José Verdi 88, Lomas de Zamora',
