@@ -7,8 +7,8 @@ export const NEGOCIO = {
   slogan: 'Tu bienestar, nuestra pasión',
   descripcion: 'Centro de estética profesional en Lomas de Zamora. Especialistas en tratamientos faciales, corporales, depilación láser y bienestar holístico.',
   telefono: '+54 9 11 7151-8339',
-  whatsapp: '5491100000000',    // 👈 Actualizar con WhatsApp real
-  email: 'turnos@tcstetica.com', // 👈 Actualizar con email real
+  whatsapp: '5491171518339',    // 👈 Actualizar con WhatsApp real
+  email: 'aldana021005@gmail.com', // 👈 Actualizar con email real
   direccion: 'José Verdi 88, Lomas de Zamora',
   horario: 'Lun a Vie con turno previo | Viernes tratamientos corporales | Láser 2 días al mes',
   instagram: 'tcstetica', // 👈 Actualizar con Instagram real
