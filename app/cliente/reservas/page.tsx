@@ -1,44 +1,26 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Calendar, Clock, MessageCircle, ChevronRight, Plus } from 'lucide-react'
+import { Calendar, Clock, MessageCircle, Plus } from 'lucide-react'
+import toast from 'react-hot-toast'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
+import { supabase } from '@/lib/supabase'
 import { formatPrecio, formatDuracion, NEGOCIO } from '@/lib/datos-ejemplo'
 
-// Datos de ejemplo para mostrar la UI
-const RESERVAS_EJEMPLO = [
-  {
-    id: '1',
-    servicio: 'Facial Hidratante Profundo',
-    fecha: '2025-07-15',
-    hora: '10:00',
-    duracion: 60,
-    estado: 'confirmado',
-    monto_total: 8500,
-    monto_pagado: 4250,
-  },
-  {
-    id: '2',
-    servicio: 'Masaje Relajante Cuerpo Completo',
-    fecha: '2025-07-22',
-    hora: '15:30',
-    duracion: 60,
-    estado: 'confirmado',
-    monto_total: 9000,
-    monto_pagado: 9000,
-  },
-  {
-    id: '3',
-    servicio: 'Limpieza de Cutis',
-    fecha: '2025-06-01',
-    hora: '11:00',
-    duracion: 50,
-    estado: 'completado',
-    monto_total: 6500,
-    monto_pagado: 6500,
-  },
-]
+type Turno = {
+  id: string
+  fecha: string
+  hora_inicio: string
+  estado: string
+  monto_total: number
+  monto_pagado: number
+  servicios: {
+    nombre: string
+    duracion_minutos: number
+  } | null
+}
 
 const ESTADO_ESTILOS: Record<string, string> = {
   confirmado: 'bg-sage/20 text-sage',
@@ -55,13 +37,59 @@ const ESTADO_LABELS: Record<string, string> = {
 }
 
 export default function MisReservasPage() {
+  const router = useRouter()
   const [tab, setTab] = useState<'proximas' | 'historial'>('proximas')
+  const [turnos, setTurnos] = useState<Turno[]>([])
+  const [cargando, setCargando] = useState(true)
+
+  useEffect(() => {
+    const cargarTurnos = async () => {
+      const { data: sesion } = await supabase.auth.getSession()
+      const usuarioId = sesion.session?.user?.id
+
+      if (!usuarioId) {
+        toast.error('Necesitás iniciar sesión')
+        router.push('/login')
+        return
+      }
+
+      const { data, error } = await supabase
+        .from('turnos')
+        .select(`
+          id, fecha, hora_inicio, estado, monto_total, monto_pagado,
+          servicios ( nombre, duracion_minutos )
+        `)
+        .eq('usuario_id', usuarioId)
+        .order('fecha', { ascending: true })
+
+      if (error) {
+        console.error('Error cargando turnos:', error)
+        toast.error('No se pudieron cargar tus turnos')
+      } else {
+        setTurnos((data as any) || [])
+      }
+      setCargando(false)
+    }
+
+    cargarTurnos()
+  }, [router])
+
   const hoy = new Date().toISOString().split('T')[0]
+  const proximas = turnos.filter(t => t.fecha >= hoy && t.estado !== 'cancelado')
+  const historial = turnos.filter(t => t.fecha < hoy || t.estado === 'completado')
+  const lista = tab === 'proximas' ? proximas : historial
 
-  const proximas = RESERVAS_EJEMPLO.filter(r => r.fecha >= hoy && r.estado !== 'cancelado')
-  const historial = RESERVAS_EJEMPLO.filter(r => r.fecha < hoy || r.estado === 'completado')
-
-  const reservas = tab === 'proximas' ? proximas : historial
+  if (cargando) {
+    return (
+      <>
+        <Navbar />
+        <main className="pt-24 pb-16 min-h-screen bg-cream-50 flex items-center justify-center">
+          <p className="text-stone-warm">Cargando tus turnos...</p>
+        </main>
+        <Footer />
+      </>
+    )
+  }
 
   return (
     <>
@@ -79,7 +107,6 @@ export default function MisReservasPage() {
             </Link>
           </div>
 
-          {/* Tabs */}
           <div className="flex gap-1 bg-cream-200 rounded-xl p-1 mb-6">
             {[
               { key: 'proximas', label: `Próximos (${proximas.length})` },
@@ -99,8 +126,7 @@ export default function MisReservasPage() {
             ))}
           </div>
 
-          {/* Lista de reservas */}
-          {reservas.length === 0 ? (
+          {lista.length === 0 ? (
             <div className="card p-12 text-center">
               <div className="text-4xl mb-4">📅</div>
               <h3 className="font-display text-stone-dark text-lg mb-2">
@@ -117,14 +143,16 @@ export default function MisReservasPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {reservas.map(r => {
-                const saldo = r.monto_total - r.monto_pagado
+              {lista.map(t => {
+                const saldo = t.monto_total - t.monto_pagado
                 return (
-                  <div key={r.id} className="card p-5">
+                  <div key={t.id} className="card p-5">
                     <div className="flex items-start justify-between mb-3">
-                      <h3 className="font-medium text-stone-dark leading-tight">{r.servicio}</h3>
-                      <span className={`text-xs px-2 py-1 rounded-full font-medium shrink-0 ml-2 ${ESTADO_ESTILOS[r.estado]}`}>
-                        {ESTADO_LABELS[r.estado]}
+                      <h3 className="font-medium text-stone-dark leading-tight">
+                        {t.servicios?.nombre || 'Servicio'}
+                      </h3>
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium shrink-0 ml-2 ${ESTADO_ESTILOS[t.estado] || ''}`}>
+                        {ESTADO_LABELS[t.estado] || t.estado}
                       </span>
                     </div>
 
@@ -132,21 +160,21 @@ export default function MisReservasPage() {
                       <div className="flex items-center gap-1.5">
                         <Calendar size={14} />
                         <span>
-                          {new Date(r.fecha + 'T12:00:00').toLocaleDateString('es-AR', {
+                          {new Date(t.fecha + 'T12:00:00').toLocaleDateString('es-AR', {
                             weekday: 'short', day: 'numeric', month: 'short'
                           })}
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <Clock size={14} />
-                        <span>{r.hora} hs · {formatDuracion(r.duracion)}</span>
+                        <span>{t.hora_inicio} hs{t.servicios ? ` · ${formatDuracion(t.servicios.duracion_minutos)}` : ''}</span>
                       </div>
                     </div>
 
                     <div className="bg-cream-100 rounded-lg p-3 flex justify-between items-center text-sm mb-4">
                       <div>
-                        <span className="text-stone-warm">Pagado: </span>
-                        <span className="font-medium text-stone-dark">{formatPrecio(r.monto_pagado)}</span>
+                        <span className="text-stone-warm">A pagar: </span>
+                        <span className="font-medium text-stone-dark">{formatPrecio(t.monto_pagado)}</span>
                       </div>
                       {saldo > 0 && (
                         <div>
@@ -156,22 +184,15 @@ export default function MisReservasPage() {
                       )}
                     </div>
 
-                    {r.estado === 'confirmado' && (
-                      <div className="flex gap-2">
-                        <a
-                          href={`https://wa.me/${NEGOCIO.whatsapp}?text=Hola! Tengo un turno el ${r.fecha} a las ${r.hora} para ${r.servicio} y quería consultar algo.`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex-1 flex items-center justify-center gap-2 py-2 text-sm border border-cream-200 rounded-lg text-stone-warm hover:border-stone-warm transition-colors"
-                        >
-                          <MessageCircle size={14} />
-                          Consultar
-                        </a>
-                        <button className="flex-1 py-2 text-sm border border-red-200 text-red-400 rounded-lg hover:bg-red-50 transition-colors">
-                          Cancelar turno
-                        </button>
-                      </div>
-                    )}
+                    <a
+                      href={`https://wa.me/${NEGOCIO.whatsapp}?text=Hola! Tengo un turno el ${t.fecha} a las ${t.hora_inicio} para ${t.servicios?.nombre || ''} y quería consultar algo.`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full flex items-center justify-center gap-2 py-2 text-sm border border-cream-200 rounded-lg text-stone-warm hover:border-stone-warm transition-colors"
+                    >
+                      <MessageCircle size={14} />
+                      Consultar por WhatsApp
+                    </a>
                   </div>
                 )
               })}
