@@ -7,6 +7,8 @@ import toast from 'react-hot-toast'
 import { supabase } from '@/lib/supabase'
 import { NEGOCIO } from '@/lib/datos-ejemplo'
 
+const ADMIN_EMAILS = ['Aldana021005@gmail.com', 'aldana021005@gmail.com']
+
 export default function LoginPage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
@@ -23,24 +25,22 @@ export default function LoginPage() {
 
       if (error) {
         toast.error('Email o contraseña incorrectos')
+        setLoading(false)
         return
       }
 
-      // Verificar si es admin
-      const { data: usuario } = await supabase
-        .from('usuarios')
-        .select('rol')
-        .eq('id', data.user.id)
-        .single()
+      const userEmail = data.user.email || ''
+      const isAdmin = ADMIN_EMAILS.some(a => a.toLowerCase() === userEmail.toLowerCase())
 
-      if (usuario?.rol === 'admin') {
+      if (isAdmin) {
+        toast.success('¡Bienvenida, Aldana!')
         router.push('/admin/dashboard')
       } else {
+        toast.success('¡Bienvenida!')
         router.push('/cliente/reservas')
       }
-
-      toast.success('¡Bienvenida!')
     } catch (err) {
+      console.error(err)
       toast.error('Ocurrió un error. Intentá de nuevo.')
     } finally {
       setLoading(false)
@@ -50,7 +50,6 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-cream-50 flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2">
             <Sparkles size={20} className="text-rose-deep" />
